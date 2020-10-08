@@ -11,6 +11,11 @@ public class MovePlayer : MonoBehaviour
     Rigidbody rigidbody;
     CapsuleCollider capsule;
     Vector3 initPos;
+    Transform weaponTransform;
+
+    public GameObject projectileTemplate;
+
+    public float jumpPower = 7f;
     // functia apelata o singura data, la initializare
     void Start()
     {
@@ -19,10 +24,26 @@ public class MovePlayer : MonoBehaviour
         rigidbody = GetComponent<Rigidbody>();
         capsule = GetComponent<CapsuleCollider>();
         initPos = transform.position;
+        weaponTransform = animator.GetBoneTransform(HumanBodyBones.RightHand).GetChild(0);
     }
 
     // apelata de N ori pe secunda, preferabil N >= 60 FPS
     void Update()
+    {
+        Vector3 dir = GetPlayerDirection();
+
+        HandleRootMotion();
+
+        ApplyRootRotation(dir);
+
+        SetAnimatorMovementParameters(dir);
+
+        HandleJump(dir);
+
+        HandleAttack();
+    }
+
+    private Vector3 GetPlayerDirection()
     {
         float dx = Input.GetAxis("Horizontal"); // -1 pentru tasta A, 1 pentru tasta D, 0 altfel
         float dz = Input.GetAxis("Vertical"); // -1 pentru tasta S, 1 pentru tasta W, 0 altfel
@@ -35,16 +56,36 @@ public class MovePlayer : MonoBehaviour
         Vector3 offset = dir * Time.deltaTime * speedMultiplier; //calculam deplasamentul per frame
                                                                  //Time.deltaTime ne ofera framerate independece: daca deplasamentul de la frame la frame nu este proportional
                                                                  //cu timpul scurs intre 2 frameuri(deltaTime), viteza de miscare devine dependenta de FPS
-
         // transform.position += offset;//finally, adunam deplasamentul la pozitia personajului
+        return dir;
+    }
+    private void HandleAttack()
+    {
+        if (Input.GetButtonDown("Fire1") && !Input.GetKey(KeyCode.LeftShift))
+            animator.SetTrigger("AttackL");
 
-        HandleRootMotion();
+        if (Input.GetButtonDown("Fire2"))
+            animator.SetTrigger("AttackR");
 
-        ApplyRootRotation(dir);
+        float layerWeight = animator.GetLayerWeight(1);
+       
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            weaponTransform.gameObject.SetActive(true);
+            animator.SetLayerWeight(1, Mathf.Lerp(layerWeight, 1f, 0.5f));
 
-        SetAnimatorMovementParameters(dir);
-
-        HandleJump(dir);
+            if (Input.GetButtonDown("Fire1"))
+            {
+                var go = GameObject.Instantiate(projectileTemplate);
+                go.transform.position = weaponTransform.position;
+                go.GetComponent<ProjectileCtrl>().dir = weaponTransform.up;
+            }
+        }
+        else
+        {
+            weaponTransform.gameObject.SetActive(false);
+            animator.SetLayerWeight(1, Mathf.Lerp(layerWeight, 0f, 0.5f));
+        }
     }
 
     private void ApplyRootRotation(Vector3 dir)
@@ -72,8 +113,11 @@ public class MovePlayer : MonoBehaviour
     private void HandleRootMotion()
     {
         float velY = rigidbody.velocity.y; // pastram viteza corpului rigid(simulat de motorul de fizica)pe axa verticala
-        rigidbody.velocity = animator.deltaPosition / Time.deltaTime; // ROOT MOTION: distanta intre frameuri impartit la timp
-        rigidbody.velocity = new Vector3(rigidbody.velocity.x, velY, rigidbody.velocity.z); // reasignam viteza de cadrul anterior pe Y
+        if (!animator.GetBool("Jump"))
+        {
+            rigidbody.velocity = animator.deltaPosition / Time.deltaTime; // ROOT MOTION: distanta intre frameuri impartit la timp
+            rigidbody.velocity = new Vector3(rigidbody.velocity.x, velY, rigidbody.velocity.z); // reasignam viteza de cadrul anterior pe Y
+        }
     }
 
     void HandleJump(Vector3 dir)
@@ -81,8 +125,12 @@ public class MovePlayer : MonoBehaviour
         if (transform.position.y < -50f) // daca ai cazut in gol, reset la pozitia initiala
             transform.position = initPos;
 
-        if (Input.GetKeyDown(KeyCode.Space)) // daca apasam space, imprima forta in sus pentru saritura
-            rigidbody.AddForce((Vector3.up + dir)* 300f);
+        if (Input.GetKeyDown(KeyCode.Space))
+        // daca apasam space, imprima forta in sus pentru saritura
+        {
+            rigidbody.velocity = (Vector3.up + dir * 2f) * jumpPower;
+            Debug.Log(dir);
+        }
         
         //raza care ne verifica daca personajul este pe sol sau in aer
         Ray ray = new Ray(transform.position + Vector3.up * 0.3f, Vector3.down); 

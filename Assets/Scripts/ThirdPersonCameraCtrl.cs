@@ -9,7 +9,7 @@ public class ThirdPersonCameraCtrl : MonoBehaviour
     float pitch = 0f; // unghiul cu axa orizontala a lumii
     public Transform playerTransform; // referinta la target
     public float distToTarget = 5f; // distanta pana la target
-    
+    public float minPitch = -10f, maxPitch = 45f;
     // Start is called before the first frame update
     void Start()
     {
@@ -21,6 +21,8 @@ public class ThirdPersonCameraCtrl : MonoBehaviour
     {
         yaw += Input.GetAxis("Mouse X"); // adunam deplasamentul orizontal al mouselui
         pitch += Input.GetAxis("Mouse Y"); // adunam deplasamentul vertical al mouselui
+
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
         transform.rotation = Quaternion.Euler(pitch, yaw, 0f); // rotatia cu axele lumii
         //pozitionarea camerei in jurul personajului:
