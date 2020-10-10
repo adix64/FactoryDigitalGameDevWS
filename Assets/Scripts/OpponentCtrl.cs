@@ -7,23 +7,66 @@ public class OpponentCtrl : MonoBehaviour
     UnityEngine.AI.NavMeshAgent agent;
     public Transform player;
     Animator animator;
+    float timeSinceDeath = 0f;
+    int dirMode = 0; // 0 - direct catre oponent, 1 - il inconjoara prin stanga, 2 - il inconjoara prin dreapta, 3 - se da in spate
+    Vector3 surroundDir;
     // Start is called before the first frame update
     void Start()
     {
         animator = GetComponent<Animator>();
         agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        StartCoroutine(SeedDirection(2f));
     }
+
+    IEnumerator SeedDirection(float t)
+    {
+        yield return new WaitForSeconds(t);
+        dirMode = Random.Range(0, 4);
+        switch (dirMode)
+        {
+            case 0:
+                surroundDir = Vector3.zero;
+                break;
+            case 1:
+                surroundDir = -transform.right;
+                break;
+            case 2:
+                surroundDir = transform.right;
+                break;
+            case 3:
+                surroundDir = -transform.forward * 5f;
+                break;
+        }
+        yield return StartCoroutine(SeedDirection(Random.Range(2f, 4f)));
+    }
+
 
     // Update is called once per frame
     void Update()
     {
-        agent.SetDestination(player.position);
+        agent.SetDestination(player.position + surroundDir);
 
         SetAnimatorDirParameters();
 
         RotateTowardsEnemy();
 
         Attack();
+
+        VerifyAlive();
+    }
+
+    void VerifyAlive()
+    {
+        if (animator.GetFloat("HP") < 0)
+        {
+            agent.SetDestination(transform.position);
+            timeSinceDeath += Time.deltaTime;
+            if (timeSinceDeath > 5f)
+            {
+                Destroy(gameObject);
+            }
+        }
+
     }
 
     private void Attack()

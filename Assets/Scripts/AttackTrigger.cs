@@ -22,6 +22,10 @@ public class AttackTrigger : MonoBehaviour
         Animator opponetAnimator = other.GetComponentInParent<Animator>();
         if (opponetAnimator.GetFloat("timeSinceLastHit") > 0.5f &&
             other.gameObject.layer == LayerMask.NameToLayer(compareTo))
+        {
             opponetAnimator.SetTrigger("TakeHit");
+            opponetAnimator.SetFloat("HP", opponetAnimator.GetFloat("HP") - 10f);
+
+        }
     }
 }

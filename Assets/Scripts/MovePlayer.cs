@@ -12,6 +12,7 @@ public class MovePlayer : MonoBehaviour
     CapsuleCollider capsule;
     Vector3 initPos;
     Transform weaponTransform;
+    Transform weaponTip;
 
     public GameObject projectileTemplate;
 
@@ -29,7 +30,8 @@ public class MovePlayer : MonoBehaviour
         capsule = GetComponent<CapsuleCollider>();
         initPos = transform.position;
         
-        weaponTransform = animator.GetBoneTransform(HumanBodyBones.RightHand).GetChild(0);
+        weaponTransform = animator.GetBoneTransform(HumanBodyBones.RightHand).GetChild(5);//dupa cele 5 degete in ierarhie
+        weaponTip = weaponTransform.GetChild(0).GetChild(0);
 
         //initializam array-ul cu inamici si referentiem toti inamicii in el:
         enemies = new Transform[enemiesContainer.childCount];
@@ -52,7 +54,14 @@ public class MovePlayer : MonoBehaviour
 
         HandleAttack();
     }
-
+    private void LateUpdate()
+    {
+        if (Input.GetKey(KeyCode.LeftShift) && Vector3.Dot(Camera.main.transform.forward, transform.forward) > 0f)
+        {
+            var spineTransform = animator.GetBoneTransform(HumanBodyBones.Spine);
+            spineTransform.LookAt(spineTransform.position + Camera.main.transform.forward);
+        }
+    }
     private Vector3 GetPlayerDirection()
     {
         float dx = Input.GetAxis("Horizontal"); // -1 pentru tasta A, 1 pentru tasta D, 0 altfel
@@ -86,16 +95,17 @@ public class MovePlayer : MonoBehaviour
         {//aim at target mode...
             weaponTransform.gameObject.SetActive(true); // se arata arma
             animator.SetLayerWeight(1, Mathf.Lerp(layerWeight, 1f, 0.5f));//se interpoleaza catre postura in care tine arma
-
+            Cursor.lockState = CursorLockMode.Locked;
             if (Input.GetButtonDown("Fire1"))
             {// se instantiaza proiectilul cand apasam Left Click
                 var go = GameObject.Instantiate(projectileTemplate);
-                go.transform.position = weaponTransform.position; // se asigneaza pozitia din care pleaca proiectilul
-                go.GetComponent<ProjectileCtrl>().dir = weaponTransform.up; // se asigneaza directia in care e impuscat
+                go.transform.position = weaponTip.position; // se asigneaza pozitia din care pleaca proiectilul
+                go.GetComponent<ProjectileCtrl>().dir = Camera.main.transform.forward; // se asigneaza directia in care e impuscat
             }
         }
         else
         {//movement mode
+            Cursor.lockState = CursorLockMode.None;
             weaponTransform.gameObject.SetActive(false);//dispare arma
             animator.SetLayerWeight(1, Mathf.Lerp(layerWeight, 0f, 0.5f));//se interpoleaza in afara posturii in care tine arma
         }
@@ -104,6 +114,8 @@ public class MovePlayer : MonoBehaviour
     private void ApplyRootRotation(Vector3 dir)
     {
         dir = AssignDirToEnemy(dir);
+
+        dir = AssignDirToCameraLook(dir);
 
         if ((transform.forward + dir).magnitude > 0.001f &&
                     (transform.forward - dir).magnitude > 0.001f)
@@ -114,6 +126,18 @@ public class MovePlayer : MonoBehaviour
         }
     }
 
+    private Vector3 AssignDirToCameraLook(Vector3 dir)
+    {
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            dir = Camera.main.transform.forward;
+            dir.y = 0f;
+            dir = dir.normalized;
+        }
+        return dir;
+    }
+
+
     private Vector3 AssignDirToEnemy(Vector3 dir)
     {
         float minDist = 9999999f;
@@ -122,6 +146,9 @@ public class MovePlayer : MonoBehaviour
         //ia inamicul cel mai apropiat, daca se afla la o distanta < 7m (**)
         for (int i = 0; i < enemiesContainer.childCount; i++)
         {
+            if (enemies[i] == null)
+                continue;
+
             float dist = Vector3.Distance(enemies[i].position, transform.position);
             if (dist < 7f && dist < minDist)
             {
@@ -154,8 +181,9 @@ public class MovePlayer : MonoBehaviour
     private void HandleRootMotion()
     {
         float velY = rigidbody.velocity.y; // pastram viteza corpului rigid(simulat de motorul de fizica)pe axa verticala
+
         if (!animator.GetBool("Jump"))
-        {        
+        {
             rigidbody.velocity = animator.deltaPosition / Time.deltaTime; // ROOT MOTION: distanta intre frameuri impartit la timp
             rigidbody.velocity = new Vector3(rigidbody.velocity.x, velY, rigidbody.velocity.z); // reasignam viteza de cadrul anterior pe Y
         }
@@ -167,11 +195,11 @@ public class MovePlayer : MonoBehaviour
         if (transform.position.y < -50f) // daca ai cazut in gol, reset la pozitia initiala
             transform.position = initPos;
 
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Space) && !animator.GetBool("Jump"))
         // daca apasam space, imprima forta in sus pentru saritura
         {
             Vector3 propellDir = (Vector3.up + dir) * jumpPower;
-            rigidbody.AddForce(propellDir, ForceMode.Impulse);
+            rigidbody.AddForce(propellDir, ForceMode.VelocityChange);
         }
         
         //raza care ne verifica daca personajul este pe sol sau in aer
