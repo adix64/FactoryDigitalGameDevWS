@@ -154,9 +154,11 @@ public class MovePlayer : MonoBehaviour
     private void HandleRootMotion()
     {
         float velY = rigidbody.velocity.y; // pastram viteza corpului rigid(simulat de motorul de fizica)pe axa verticala
-       
-        rigidbody.velocity = animator.deltaPosition / Time.deltaTime; // ROOT MOTION: distanta intre frameuri impartit la timp
-        rigidbody.velocity = new Vector3(rigidbody.velocity.x, velY, rigidbody.velocity.z); // reasignam viteza de cadrul anterior pe Y
+        if (!animator.GetBool("Jump"))
+        {        
+            rigidbody.velocity = animator.deltaPosition / Time.deltaTime; // ROOT MOTION: distanta intre frameuri impartit la timp
+            rigidbody.velocity = new Vector3(rigidbody.velocity.x, velY, rigidbody.velocity.z); // reasignam viteza de cadrul anterior pe Y
+        }
        
     }
 
@@ -169,8 +171,7 @@ public class MovePlayer : MonoBehaviour
         // daca apasam space, imprima forta in sus pentru saritura
         {
             Vector3 propellDir = (Vector3.up + dir) * jumpPower;
-            rigidbody.AddForce(propellDir, ForceMode.VelocityChange);
-            StartCoroutine(Propell(0.1f, propellDir));
+            rigidbody.AddForce(propellDir, ForceMode.Impulse);
         }
         
         //raza care ne verifica daca personajul este pe sol sau in aer
@@ -179,15 +180,12 @@ public class MovePlayer : MonoBehaviour
         if (Physics.Raycast(ray, out RaycastHit hitInfo, 0.5f))
         {//pe sol
             animator.SetBool("Jump", false);
+            animator.applyRootMotion = true;
         }
         else
         {//in aer
             animator.SetBool("Jump", true);
+            animator.applyRootMotion = false;
         }
-    }
-    IEnumerator Propell(float t, Vector3 dir)
-    {
-        yield return new WaitForSeconds(t);
-        rigidbody.AddForce((dir) * jumpPower, ForceMode.VelocityChange);
     }
 }
